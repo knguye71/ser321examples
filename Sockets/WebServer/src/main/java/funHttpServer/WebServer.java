@@ -194,51 +194,56 @@ class WebServer {
             builder.append("File not found: " + file);
           }
         } else if (request.contains("multiply?")) {
-          // This multiplies two numbers, there is NO error handling, so when
-          // wrong data is given this just crashes
-          	
+          StringBuilder builder = new StringBuilder();
           Map<String, String> query_pairs = new LinkedHashMap<String, String>();
-          // extract path parameters
-          query_pairs = splitQuery(request.replace("multiply?", ""));
-        
-		  // Check if num1 and num2 exist
-          if (!query_pairs.containsKey("num1") || !query_pairs.containsKey("num2")) {
+		  query_pairs = splitQuery(request.replace("multiply?", ""));
+
+          // Check if num1 and num2 exist and have values
+          if (!query_pairs.containsKey("num1") || !query_pairs.containsKey("num2") || 
+            query_pairs.get("num1").isEmpty() || query_pairs.get("num2").isEmpty()) {
             builder.append("HTTP/1.1 422 Unprocessable Entity\n");
             builder.append("Content-Type: text/html; charset=utf-8\n");
             builder.append("\n");
-            builder.append("Error: Must contain num1 and num2 (Ex: /multiply?num1=1&num2=2)");
-			response = builder.toString().getBytes();
-			return response;
+            builder.append("Error: Must contain num1 and num2 with valid values (Ex: /multiply?num1=1&num2=2)");
+            return builder.toString().getBytes();
           }
+        
+          // Filter out invalid or unexpected parameters
+          if (query_pairs.size() > 2) {
+            builder.append("HTTP/1.1 400 Bad Request\n");
+            builder.append("Content-Type: text/html; charset=utf-8\n");
+            builder.append("\n");
+            builder.append("Error: Only num1 and num2 are allowed as query parameters.");
+            return builder.toString().getBytes();
+          }  
 
-          // extract required fields from parameters
           String num1Str = query_pairs.get("num1");
           String num2Str = query_pairs.get("num2");
 
-             // Ensure both parameters are numeric
+          // Ensure both parameters are numeric
           if (!num1Str.matches("-?\\d+") || !num2Str.matches("-?\\d+")) {
-            builder.append("HTTP/1.1 422 Unprocessable Entity\n");
+            builder.append("HTTP/1.1 400 Bad Request\n");
             builder.append("Content-Type: text/html; charset=utf-8\n");
             builder.append("\n");
             builder.append("Error: num1 and num2 must be valid integers.");
-			response = builder.toString().getBytes();
-			return response;
-          } 
- 
-          // Convert to integers
-          Integer num1 = Integer.parseInt(num1Str);
-          Integer num2 = Integer.parseInt(num2Str);
+            return builder.toString().getBytes();
+          }
 
-          // do math
-          Integer result = num1 * num2;
+	      // Convert to integers
+		  Integer num1 = Integer.parseInt(num1Str);
+		  Integer num2 = Integer.parseInt(num2Str);
 
-          // Generate response
-          builder.append("HTTP/1.1 200 OK\n");
-          builder.append("Content-Type: text/html; charset=utf-8\n");
-          builder.append("\n");
-          builder.append("Result is: " + result);
-		  response = builder.toString().getBytes();
-	      return response;
+		  // Perform multiplication
+		  Integer result = num1 * num2;
+
+		  // Generate successful response
+		  builder.append("HTTP/1.1 200 OK\n");
+		  builder.append("Content-Type: text/html; charset=utf-8\n");
+		  builder.append("\n");
+		  builder.append("Result is: " + result);
+
+		  return builder.toString().getBytes();
+
 
           // TODO: Include error handling here with a correct error code and
           // a response that makes sense
