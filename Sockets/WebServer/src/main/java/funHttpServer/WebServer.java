@@ -196,14 +196,38 @@ class WebServer {
         } else if (request.contains("multiply?")) {
           // This multiplies two numbers, there is NO error handling, so when
           // wrong data is given this just crashes
-
+          	
           Map<String, String> query_pairs = new LinkedHashMap<String, String>();
           // extract path parameters
           query_pairs = splitQuery(request.replace("multiply?", ""));
+        
+		  // Check if num1 and num2 exist
+          if (!query_pairs.containsKey("num1") || !query_pairs.containsKey("num2")) {
+            builder.append("HTTP/1.1 422 Unprocessable Entity\n");
+            builder.append("Content-Type: text/html; charset=utf-8\n");
+            builder.append("\n");
+            builder.append("Error: Must contain num1 and num2 (Ex: /multiply?num1=1&num2=2)");
+			response = builder.toString().getBytes();
+			return response;
+          }
 
           // extract required fields from parameters
-          Integer num1 = Integer.parseInt(query_pairs.get("num1"));
-          Integer num2 = Integer.parseInt(query_pairs.get("num2"));
+          String num1Str = query_pairs.get("num1");
+          String num2Str = query_pairs.get("num2");
+
+             // Ensure both parameters are numeric
+          if (!num1Str.matches("-?\\d+") || !num2Str.matches("-?\\d+")) {
+            builder.append("HTTP/1.1 422 Unprocessable Entity\n");
+            builder.append("Content-Type: text/html; charset=utf-8\n");
+            builder.append("\n");
+            builder.append("Error: num1 and num2 must be valid integers.");
+			response = builder.toString().getBytes();
+			return response;
+          } 
+ 
+          // Convert to integers
+          Integer num1 = Integer.parseInt(num1Str);
+          Integer num2 = Integer.parseInt(num2Str);
 
           // do math
           Integer result = num1 * num2;
@@ -213,6 +237,8 @@ class WebServer {
           builder.append("Content-Type: text/html; charset=utf-8\n");
           builder.append("\n");
           builder.append("Result is: " + result);
+		  response = builder.toString().getBytes();
+	      return response;
 
           // TODO: Include error handling here with a correct error code and
           // a response that makes sense
