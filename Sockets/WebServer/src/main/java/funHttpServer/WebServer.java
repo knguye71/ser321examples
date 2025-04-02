@@ -25,8 +25,6 @@ import java.util.Random;
 import java.util.Map;
 import java.util.LinkedHashMap;
 import java.nio.charset.Charset;
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 class WebServer {
   public static void main(String args[]) {
@@ -255,7 +253,7 @@ class WebServer {
         } else if (request.contains("github?")) {
 			Map<String, String> query_pairs = splitQuery(request.replace("github?", ""));
 
-			// Validate 'query' parameter
+			// Validate parameter
 			if (!query_pairs.containsKey("query") || query_pairs.get("query").isEmpty()) {
 				builder.append("HTTP/1.1 400 Bad Request\n");
 				builder.append("Content-Type: text/html; charset=utf-8\n\n");
@@ -273,38 +271,31 @@ class WebServer {
 				return builder.toString().getBytes();
 			}
 
-			// Parse JSON and validate structure
-			JSONArray repos;
-			try {
-				repos = new JSONArray(jsonResponse);
-				if (repos.length() == 0) {
-					builder.append("HTTP/1.1 404 Not Found\n");
-					builder.append("Content-Type: text/html; charset=utf-8\n\n");
-					builder.append("Error: No public repositories found.");
-					return builder.toString().getBytes();
-				}
-			} catch (Exception e) {
+			// Check if the JSON response starts and ends correctly
+			if (!jsonResponse.startsWith("[") || !jsonResponse.endsWith("]")) {
 				builder.append("HTTP/1.1 500 Internal Server Error\n");
 				builder.append("Content-Type: text/html; charset=utf-8\n\n");
-				builder.append("Error: Invalid JSON response from GitHub.");
+				builder.append("Error: Invalid response from GitHub.");
 				return builder.toString().getBytes();
 			}
 
-			// Generate response
+			// Parse manually by splitting the JSON array and extracting relevant fields
 			builder.append("HTTP/1.1 200 OK\n");
 			builder.append("Content-Type: text/html; charset=utf-8\n\n");
 			builder.append("<html><body><h1>Public Repositories</h1><ul>");
 
-			for (int i = 0; i < repos.length(); i++) {
-				JSONObject repo = repos.getJSONObject(i);
-				String fullName = repo.optString("full_name", "N/A");
-				int id = repo.optInt("id", -1);
-				String ownerLogin = repo.getJSONObject("owner").optString("login", "N/A");
+			String[] repoEntries = jsonResponse.substring(1, jsonResponse.length() - 1).split("},\\{");
+			for (String entry : repoEntries) {
+				entry = entry.replace("{", "").replace("}", "");
+
+				String fullName = extractValue(entry, "\"full_name\":\"");
+				String id = extractValue(entry, "\"id\":");
+				String ownerLogin = extractValue(entry, "\"login\":\"");
 
 				builder.append("<li>");
-				builder.append("Repo Name: ").append(fullName).append("<br>");
-				builder.append("ID: ").append(id).append("<br>");
-				builder.append("Owner Login: ").append(ownerLogin);
+				builder.append("Repo Name: ").append(fullName.isEmpty() ? "N/A" : fullName).append("<br>");
+				builder.append("ID: ").append(id.isEmpty() ? "N/A" : id).append("<br>");
+				builder.append("Owner Login: ").append(ownerLogin.isEmpty() ? "N/A" : ownerLogin);
 				builder.append("</li>");
 			}
 
@@ -351,6 +342,19 @@ class WebServer {
     return query_pairs;
   }
 
+  // Helper method for extracting values
+  private String extractValue(String json, String key) {
+    int start = json.indexOf(key);
+    if (start == -1) return "";
+
+    start += key.length();
+    int end = json.indexOf(",", start);
+    if (end == -1) end = json.indexOf("}", start);
+    if (end == -1) return "";
+
+    return json.substring(start, end).replace("\"", "").trim();
+  }
+  
   /**
    * Builds an HTML file list from the www directory
    * @return HTML string output of file list
