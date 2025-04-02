@@ -251,17 +251,38 @@ class WebServer {
 			return builder.toString().getBytes();
 
         } else if (request.contains("github?")) {
-			Map<String, String> query_pairs = splitQuery(request.replace("github?", ""));
+			Map<String, String> query_pairs = new LinkedHashMap<String, String>();
+			String[] params = request.replace("github?", "").split("&");
+			
+			for (String param : params) {
+				if (!param.contains("=")) {
+					builder.append("HTTP/1.1 422 Unprocessable Entity\n");
+					builder.append("Content-Type: text/html; charset=utf-8\n\n");
+					builder.append("Error: Parameters must be in key=value format. Example: /github?query=users/username/repos");
+					return builder.toString().getBytes();
+				}
 
-			// Validate parameter
-			if (!query_pairs.containsKey("query") || query_pairs.get("query").isEmpty()) {
+				// Split parameter into key and value
+				String[] keyValue = param.split("=");
+				if (keyValue.length != 2 || keyValue[0].isEmpty() || keyValue[1].isEmpty()) {
+					builder.append("HTTP/1.1 400 Bad Request\n");
+					builder.append("Content-Type: text/html; charset=utf-8\n\n");
+					builder.append("Error: Both key and value must be provided for parameters.");
+					return builder.toString().getBytes();
+				}
+
+				query_pairs.put(keyValue[0], keyValue[1]); // Add valid parameters
+			}
+
+			// Ensure only the 'query' parameter is present
+			if (query_pairs.size() > 1 || !query_pairs.containsKey("query")) {
 				builder.append("HTTP/1.1 400 Bad Request\n");
 				builder.append("Content-Type: text/html; charset=utf-8\n\n");
-				builder.append("Error: Missing or empty parameter.");
+				builder.append("Error: Only the 'query' parameter is allowed. Example: /github?query=users/username/repos");
 				return builder.toString().getBytes();
 			}
 
-			// Fetch data from GitHub API
+			// Fetch data from GitHub
 			String apiURL = "https://api.github.com/" + query_pairs.get("query");
 			String jsonResponse = fetchURL(apiURL);
 			if (jsonResponse == null || jsonResponse.isEmpty()) {
@@ -271,7 +292,7 @@ class WebServer {
 				return builder.toString().getBytes();
 			}
 
-			// Check if the JSON response starts and ends correctly
+			// Parse JSON manually
 			if (!jsonResponse.startsWith("[") || !jsonResponse.endsWith("]")) {
 				builder.append("HTTP/1.1 500 Internal Server Error\n");
 				builder.append("Content-Type: text/html; charset=utf-8\n\n");
@@ -279,15 +300,12 @@ class WebServer {
 				return builder.toString().getBytes();
 			}
 
-			// Parse manually by splitting the JSON array and extracting relevant fields
 			builder.append("HTTP/1.1 200 OK\n");
 			builder.append("Content-Type: text/html; charset=utf-8\n\n");
 			builder.append("<html><body><h1>Public Repositories</h1><ul>");
-
 			String[] repoEntries = jsonResponse.substring(1, jsonResponse.length() - 1).split("},\\{");
 			for (String entry : repoEntries) {
 				entry = entry.replace("{", "").replace("}", "");
-
 				String fullName = extractValue(entry, "\"full_name\":\"");
 				String id = extractValue(entry, "\"id\":");
 				String ownerLogin = extractValue(entry, "\"login\":\"");
@@ -298,7 +316,6 @@ class WebServer {
 				builder.append("Owner Login: ").append(ownerLogin.isEmpty() ? "N/A" : ownerLogin);
 				builder.append("</li>");
 			}
-
 			builder.append("</ul></body></html>");
 			return builder.toString().getBytes();
 
