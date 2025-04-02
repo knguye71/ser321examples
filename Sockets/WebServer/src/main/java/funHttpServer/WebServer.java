@@ -250,30 +250,64 @@ class WebServer {
 
 			return builder.toString().getBytes();
 
-
-				  // TODO: Include error handling here with a correct error code and
-				  // a response that makes sense
-
         } else if (request.contains("github?")) {
-          // pulls the query from the request and runs it with GitHub's REST API
-          // check out https://docs.github.com/rest/reference/
-          //
-          // HINT: REST is organized by nesting topics. Figure out the biggest one first,
-          //     then drill down to what you care about
-          // "Owner's repo is named RepoName. Example: find RepoName's contributors" translates to
-          //     "/repos/OWNERNAME/REPONAME/contributors"
+			Map<String, String> query_pairs = splitQuery(request.replace("github?", ""));
 
-          Map<String, String> query_pairs = new LinkedHashMap<String, String>();
-          query_pairs = splitQuery(request.replace("github?", ""));
-          String json = fetchURL("https://api.github.com/" + query_pairs.get("query"));
-          System.out.println(json);
+			// Validate 'query' parameter
+			if (!query_pairs.containsKey("query") || query_pairs.get("query").isEmpty()) {
+				builder.append("HTTP/1.1 400 Bad Request\n");
+				builder.append("Content-Type: text/html; charset=utf-8\n\n");
+				builder.append("Error: Missing or empty parameter.");
+				return builder.toString().getBytes();
+			}
 
-          builder.append("HTTP/1.1 200 OK\n");
-          builder.append("Content-Type: text/html; charset=utf-8\n");
-          builder.append("\n");
-          builder.append("Check the todos mentioned in the Java source file");
-          // TODO: Parse the JSON returned by your fetch and create an appropriate
-          // response based on what the assignment document asks for
+			// Fetch data from GitHub API
+			String apiURL = "https://api.github.com/" + query_pairs.get("query");
+			String jsonResponse = fetchURL(apiURL);
+			if (jsonResponse == null || jsonResponse.isEmpty()) {
+				builder.append("HTTP/1.1 500 Internal Server Error\n");
+				builder.append("Content-Type: text/html; charset=utf-8\n\n");
+				builder.append("Error: Unable to fetch data from GitHub.");
+				return builder.toString().getBytes();
+			}
+
+			// Parse JSON and validate structure
+			JSONArray repos;
+			try {
+				repos = new JSONArray(jsonResponse);
+				if (repos.length() == 0) {
+					builder.append("HTTP/1.1 404 Not Found\n");
+					builder.append("Content-Type: text/html; charset=utf-8\n\n");
+					builder.append("Error: No public repositories found.");
+					return builder.toString().getBytes();
+				}
+			} catch (Exception e) {
+				builder.append("HTTP/1.1 500 Internal Server Error\n");
+				builder.append("Content-Type: text/html; charset=utf-8\n\n");
+				builder.append("Error: Invalid JSON response from GitHub.");
+				return builder.toString().getBytes();
+			}
+
+			// Generate response
+			builder.append("HTTP/1.1 200 OK\n");
+			builder.append("Content-Type: text/html; charset=utf-8\n\n");
+			builder.append("<html><body><h1>Public Repositories</h1><ul>");
+
+			for (int i = 0; i < repos.length(); i++) {
+				JSONObject repo = repos.getJSONObject(i);
+				String fullName = repo.optString("full_name", "N/A");
+				int id = repo.optInt("id", -1);
+				String ownerLogin = repo.getJSONObject("owner").optString("login", "N/A");
+
+				builder.append("<li>");
+				builder.append("Repo Name: ").append(fullName).append("<br>");
+				builder.append("ID: ").append(id).append("<br>");
+				builder.append("Owner Login: ").append(ownerLogin);
+				builder.append("</li>");
+			}
+
+			builder.append("</ul></body></html>");
+			return builder.toString().getBytes();
 
         } else {
           // if the request is not recognized at all
