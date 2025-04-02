@@ -258,16 +258,16 @@ class WebServer {
 				if (!param.contains("=")) {
 					builder.append("HTTP/1.1 422 Unprocessable Entity\n");
 					builder.append("Content-Type: text/html; charset=utf-8\n\n");
-					builder.append("Error: Parameters must be in key=value format. Example: /github?query=users/username/repos");
+					builder.append("Error: Invalid parameter format. Each parameter must have a = following it.");
 					return builder.toString().getBytes();
 				}
 
 				// Split parameter into key and value
 				String[] keyValue = param.split("=");
 				if (keyValue.length != 2 || keyValue[0].isEmpty() || keyValue[1].isEmpty()) {
-					builder.append("HTTP/1.1 400 Bad Request\n");
+					builder.append("HTTP/1.1 422 Unprocessable Entity\n");
 					builder.append("Content-Type: text/html; charset=utf-8\n\n");
-					builder.append("Error: Both key and value must be provided for parameters.");
+					builder.append("Error: Parameters must have values. Example: /github?query=users/username/repos");
 					return builder.toString().getBytes();
 				}
 
@@ -319,6 +319,98 @@ class WebServer {
 			builder.append("</ul></body></html>");
 			return builder.toString().getBytes();
 
+        } else if (request.contains("append?")) {
+			Map<String, String> query_pairs = new LinkedHashMap<String, String>();	
+			String[] params = request.replace("append?", "").split("&");
+
+			// Validate parameters before adding to the map
+			for (String param : params) {
+				if (!param.contains("=")) {
+					builder.append("HTTP/1.1 422 Unprocessable Entity\n");
+					builder.append("Content-Type: text/html; charset=utf-8\n\n");
+					builder.append("Error: Invalid parameter format. Each parameter must have a = following it.");
+					return builder.toString().getBytes();
+				}
+
+				String[] keyValue = param.split("=");
+				if (keyValue.length != 2 || keyValue[1].isEmpty()) { // Ensure proper formatting and non-empty values
+					builder.append("HTTP/1.1 422 Unprocessable Entity\n");
+					builder.append("Content-Type: text/html; charset=utf-8\n\n");
+					builder.append("Error: Parameters must have values. Example: /append?string1=abc&string2=def");
+					return builder.toString().getBytes();
+				}
+				
+				query_pairs.put(keyValue[0], keyValue[1]); // Add only valid key-value pairs
+			}
+
+			// Ensure only string1 and string2 exist
+			if (!query_pairs.containsKey("string1") || !query_pairs.containsKey("string2") || query_pairs.size() > 2) {
+				builder.append("HTTP/1.1 400 Bad Request\n");
+				builder.append("Content-Type: text/html; charset=utf-8\n\n");
+				builder.append("Error: Only string1 and string2 are allowed as parameters.");
+				return builder.toString().getBytes();
+			}
+			
+			// Append the two strings
+			String string1 = query_pairs.get("string1");
+			String string2 = query_pairs.get("string2");
+			String result = string1 + string2;
+
+			builder.append("HTTP/1.1 200 OK\n");
+			builder.append("Content-Type: text/html; charset=utf-8\n\n");
+			builder.append("<html><body><h1>Appended Strings</h1>");
+			builder.append("<p>Result: ").append(result).append("</p>");
+			builder.append("</body></html>");
+
+			return builder.toString().getBytes();
+
+        } else if (request.contains("contain?")) {
+			Map<String, String> query_pairs = new LinkedHashMap<String, String>();	
+			String[] params = request.replace("contain?", "").split("&");
+
+			// Validate parameters before adding to the map
+			for (String param : params) {
+				if (!param.contains("=")) {
+					builder.append("HTTP/1.1 422 Unprocessable Entity\n");
+					builder.append("Content-Type: text/html; charset=utf-8\n\n");
+					builder.append("Error: Invalid parameter format. Each parameter must have a = following it.");
+					return builder.toString().getBytes();
+				}
+
+				String[] keyValue = param.split("=");
+				if (keyValue.length != 2 || keyValue[1].isEmpty()) { // Ensure proper formatting and non-empty values
+					builder.append("HTTP/1.1 422 Unprocessable Entity\n");
+					builder.append("Content-Type: text/html; charset=utf-8\n\n");
+					builder.append("Error: Parameters must have values. Example: /contain?string1=abc&string2=def");
+					return builder.toString().getBytes();
+				}
+				
+				query_pairs.put(keyValue[0], keyValue[1]); // Add only valid key-value pairs
+			}
+
+			// Ensure only string1 and string2 exist
+			if (!query_pairs.containsKey("string1") || !query_pairs.containsKey("string2") || query_pairs.size() > 2) {
+				builder.append("HTTP/1.1 400 Bad Request\n");
+				builder.append("Content-Type: text/html; charset=utf-8\n\n");
+				builder.append("Error: Only string1 and string2 are allowed as parameters.");
+				return builder.toString().getBytes();
+			}
+
+			// Check if string1 contains string2
+			String string1 = query_pairs.get("string1");
+			String string2 = query_pairs.get("string2");
+			boolean contains = string1.contains(string2);
+
+			builder.append("HTTP/1.1 200 OK\n");
+			builder.append("Content-Type: text/html; charset=utf-8\n\n");
+			builder.append("<html><body><h1>String Containment Check</h1>");
+			builder.append("<p>String1: ").append(string1).append("</p>");
+			builder.append("<p>String2: ").append(string2).append("</p>");
+			builder.append("<p>Contains: ").append(contains ? "True" : "False").append("</p>");
+			builder.append("</body></html>");
+
+			return builder.toString().getBytes();
+			
         } else {
           // if the request is not recognized at all
 
