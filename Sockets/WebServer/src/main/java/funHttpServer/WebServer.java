@@ -194,9 +194,7 @@ class WebServer {
             builder.append("File not found: " + file);
           }
         } else if (request.contains("multiply?")) {
-	        StringBuilder builder = new StringBuilder();
-			Map<String, String> query_pairs = new LinkedHashMap<String, String>();
-			
+			Map<String, String> query_pairs = new LinkedHashMap<String, String>();	
 			String[] params = request.replace("multiply?", "").split("&");
 
 			// Validate parameters before adding to the map
