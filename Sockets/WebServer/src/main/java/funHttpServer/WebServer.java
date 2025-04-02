@@ -194,58 +194,67 @@ class WebServer {
             builder.append("File not found: " + file);
           }
         } else if (request.contains("multiply?")) {
-          Map<String, String> query_pairs = new LinkedHashMap<String, String>();
-		  query_pairs = splitQuery(request.replace("multiply?", ""));
+	        StringBuilder builder = new StringBuilder();
+			Map<String, String> query_pairs = new LinkedHashMap<String, String>();
+			
+			String[] params = request.replace("multiply?", "").split("&");
 
-          // Check if num1 and num2 exist and have values
-          if (!query_pairs.containsKey("num1") || !query_pairs.containsKey("num2") || 
-            query_pairs.get("num1").isEmpty() || query_pairs.get("num2").isEmpty()) {
-            builder.append("HTTP/1.1 422 Unprocessable Entity\n");
-            builder.append("Content-Type: text/html; charset=utf-8\n");
-            builder.append("\n");
-            builder.append("Error: Must contain num1 and num2 with valid values (Ex: /multiply?num1=1&num2=2)");
-            return builder.toString().getBytes();
-          }
-        
-          // Filter out invalid or unexpected parameters
-          if (query_pairs.size() > 2) {
-            builder.append("HTTP/1.1 400 Bad Request\n");
-            builder.append("Content-Type: text/html; charset=utf-8\n");
-            builder.append("\n");
-            builder.append("Error: Only num1 and num2 are allowed as query parameters.");
-            return builder.toString().getBytes();
-          }  
+			// Validate parameters before adding to the map
+			for (String param : params) {
+				if (!param.contains("=")) {
+					builder.append("HTTP/1.1 422 Unprocessable Entity\n");
+					builder.append("Content-Type: text/html; charset=utf-8\n\n");
+					builder.append("Error: Invalid parameter format. Each parameter must have a = following it.");
+					return builder.toString().getBytes();
+				}
 
-          String num1Str = query_pairs.get("num1");
-          String num2Str = query_pairs.get("num2");
+				String[] keyValue = param.split("=");
+				if (keyValue.length != 2 || keyValue[1].isEmpty()) { // Ensure proper formatting and non-empty values
+					builder.append("HTTP/1.1 422 Unprocessable Entity\n");
+					builder.append("Content-Type: text/html; charset=utf-8\n\n");
+					builder.append("Error: Parameters must have values. Example: /multiply?num1=50&num2=2");
+					return builder.toString().getBytes();
+				}
+				
+				query_pairs.put(keyValue[0], keyValue[1]); // Add only valid key-value pairs
+			}
 
-          // Ensure both parameters are numeric
-          if (!num1Str.matches("-?\\d+") || !num2Str.matches("-?\\d+")) {
-            builder.append("HTTP/1.1 400 Bad Request\n");
-            builder.append("Content-Type: text/html; charset=utf-8\n");
-            builder.append("\n");
-            builder.append("Error: num1 and num2 must be valid integers.");
-            return builder.toString().getBytes();
-          }
+			// Ensure only num1 and num2 exist
+			if (!query_pairs.containsKey("num1") || !query_pairs.containsKey("num2") || query_pairs.size() > 2) {
+				builder.append("HTTP/1.1 400 Bad Request\n");
+				builder.append("Content-Type: text/html; charset=utf-8\n\n");
+				builder.append("Error: Only num1 and num2 are allowed as parameters.");
+				return builder.toString().getBytes();
+			}
 
-	      // Convert to integers
-		  Integer num1 = Integer.parseInt(num1Str);
-		  Integer num2 = Integer.parseInt(num2Str);
+			String num1Str = query_pairs.get("num1");
+			String num2Str = query_pairs.get("num2");
 
-		  // Perform multiplication
-		  Integer result = num1 * num2;
+			// Ensure both values are numeric
+			if (!num1Str.matches("-?\\d+") || !num2Str.matches("-?\\d+")) {
+				builder.append("HTTP/1.1 422 Unprocessable Entity\n");
+				builder.append("Content-Type: text/html; charset=utf-8\n\n");
+				builder.append("Error: num1 and num2 must be valid integers.");
+				return builder.toString().getBytes();
+			}
 
-		  // Generate successful response
-		  builder.append("HTTP/1.1 200 OK\n");
-		  builder.append("Content-Type: text/html; charset=utf-8\n");
-		  builder.append("\n");
-		  builder.append("Result is: " + result);
+			// Convert to integers
+			Integer num1 = Integer.parseInt(num1Str);
+			Integer num2 = Integer.parseInt(num2Str);
 
-		  return builder.toString().getBytes();
+			// Perform multiplication
+			Integer result = num1 * num2;
+
+			// Generate successful response
+			builder.append("HTTP/1.1 200 OK\n");
+			builder.append("Content-Type: text/html; charset=utf-8\n\n");
+			builder.append("Result is: " + result);
+
+			return builder.toString().getBytes();
 
 
-          // TODO: Include error handling here with a correct error code and
-          // a response that makes sense
+				  // TODO: Include error handling here with a correct error code and
+				  // a response that makes sense
 
         } else if (request.contains("github?")) {
           // pulls the query from the request and runs it with GitHub's REST API
